@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS prices (
     symbol TEXT NOT NULL,
-    ts TIMESTAMPZ NOT NULL,
+    ts TIMESTAMPTZ NOT NULL,
     open DOUBLE PRECISION,
-    high DOUBLE PRECISION ,
+    high DOUBLE PRECISION,
     low DOUBLE PRECISION,
     close DOUBLE PRECISION,
     volume BIGINT NOT NULL,
@@ -16,5 +16,5 @@ CREATE TABLE IF NOT EXISTS fundamentals (
     pe_ratio DOUBLE PRECISION,
     market_cap BIGINT,
     fifty_two_week_high DOUBLE PRECISION,
-    updated_at TIMESTAMPZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
