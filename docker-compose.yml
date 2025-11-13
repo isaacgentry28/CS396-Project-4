@@ -18,7 +18,4 @@ services:
 
 volumes:
   pgdata:
-<<<<<<< HEAD
-=======
     
->>>>>>> 0fe32fb (fixed bug in yml file)
