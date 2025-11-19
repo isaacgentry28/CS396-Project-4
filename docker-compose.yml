@@ -1,7 +1,9 @@
 version: "3.9"
+
 services:
   db:
     image: postgres:16
+    env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -9,13 +11,24 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
-    ports: ["5432:5432"]
+    ports:
+      - "5432:5432"
 
   adminer:
     image: adminer
-    ports: ["8080:8080"]
-    depends_on: [db]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  price:
+    build: ./services/price
+    container_name: price-service
+    env_file: .env
+    depends_on:
+      - db
+    ports:
+      - "8001:8000"   # host:container (so you can hit /health on 8001)
 
 volumes:
   pgdata:
-    
