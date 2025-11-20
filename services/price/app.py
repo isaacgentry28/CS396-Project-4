@@ -88,6 +88,10 @@ async def fetch_intraday_for_symbol(symbol: str) -> list[dict]:
         print(f"[{symbol}] No price data returned from yfinance", flush=True)
         return []
 
+    # yfinance may return a MultiIndex (price field, ticker); flatten to simple columns
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+
     rows: list[dict] = []
     for ts, values in df.iterrows():
         try:
