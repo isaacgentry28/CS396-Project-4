@@ -128,6 +128,19 @@
                 }
             }
         });
+
+        // Auto-refresh the page to pick up fresh data while keeping the selected ticker.
+        // Adjust the interval (ms) as needed.
+        const refreshMs = 30000;
+        setInterval(() => {
+            const select = document.getElementById('symbol');
+            const symbol = select ? select.value : '';
+            const url = new URL(window.location.href);
+            if (symbol) {
+                url.searchParams.set('symbol', symbol);
+            }
+            window.location.href = url.toString();
+        }, refreshMs);
     </script>
 </body>
 </html>
