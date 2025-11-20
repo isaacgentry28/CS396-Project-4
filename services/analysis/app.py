@@ -1,9 +1,10 @@
 import os
-import json
 import datetime as dt
+import asyncio
+import json
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, text
@@ -18,6 +19,7 @@ TICKERS: List[str] = [
 
 PRICE_POINTS = int(os.getenv("ANALYSIS_PRICE_POINTS", "120"))
 SMA_WINDOW = int(os.getenv("ANALYSIS_SMA_WINDOW", "20"))
+WS_REFRESH_SECONDS = int(os.getenv("WS_REFRESH_SECONDS", "10"))
 
 POSTGRES_USER = os.getenv("POSTGRES_USER", "stocks_user")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "stocks_pass")
@@ -106,6 +108,33 @@ def compute_sma(values: List[float], window: int) -> List[Optional[float]]:
 
 # -------- Routes --------
 
+def build_summary_payload(selected: str) -> dict:
+    prices = fetch_price_history(selected, PRICE_POINTS)
+    closes = [row["close"] for row in prices]
+    sma_values = compute_sma(closes, SMA_WINDOW) if closes else []
+    latest_ts = prices[-1]["ts"] if prices else None
+    freshness_minutes = None
+    if latest_ts:
+        freshness_minutes = (dt.datetime.now(dt.timezone.utc) - latest_ts).total_seconds() / 60
+    fundamentals = fetch_fundamentals(selected)
+    fundamentals_iso = None
+    if fundamentals:
+        fundamentals_iso = fundamentals.copy()
+        if fundamentals_iso.get("updated_at"):
+            fundamentals_iso["updated_at"] = fundamentals_iso["updated_at"].isoformat()
+
+    return {
+        "symbol": selected,
+        "prices": [
+            {**row, "ts": row["ts"].isoformat()}
+            for row in prices
+        ],
+        "sma": sma_values,
+        "fundamentals": fundamentals_iso,
+        "price_freshness_minutes": freshness_minutes if prices else None,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, symbol: Optional[str] = None):
     symbols = fetch_available_symbols()
@@ -189,6 +218,31 @@ async def api_summary(symbol: Optional[str] = None):
         "fundamentals": fundamentals,
         "price_freshness_minutes": freshness_minutes if prices else None,
     }
+
+
+@app.websocket("/ws")
+async def websocket_summary(websocket: WebSocket, symbol: Optional[str] = None):
+    await websocket.accept()
+    try:
+        while True:
+            symbols = fetch_available_symbols()
+            if not symbols:
+                await asyncio.sleep(WS_REFRESH_SECONDS)
+                continue
+
+            selected = (symbol or symbols[0]).upper()
+            if selected not in symbols:
+                selected = symbols[0]
+
+            payload = build_summary_payload(selected)
+            await websocket.send_json(payload)
+            await asyncio.sleep(WS_REFRESH_SECONDS)
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        # On unexpected error, close the socket to avoid dangling connections.
+        await websocket.close(code=1011, reason=str(exc))
+        return
 
 
 @app.get("/health")

@@ -129,18 +129,53 @@
             }
         });
 
-        // Auto-refresh the page to pick up fresh data while keeping the selected ticker.
-        // Adjust the interval (ms) as needed.
-        const refreshMs = 30000;
-        setInterval(() => {
-            const select = document.getElementById('symbol');
+        // --- WebSocket live updates ---
+        const select = document.getElementById('symbol');
+        const makeWsUrl = () => {
             const symbol = select ? select.value : '';
-            const url = new URL(window.location.href);
-            if (symbol) {
-                url.searchParams.set('symbol', symbol);
-            }
-            window.location.href = url.toString();
-        }, refreshMs);
+            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const url = new URL(`${proto}://${window.location.host}/ws`);
+            if (symbol) url.searchParams.set('symbol', symbol);
+            return url.toString();
+        };
+
+        function applyPayload(data) {
+            const labels = (data.prices || []).map(p => new Date(p.ts).toLocaleString());
+            const prices = (data.prices || []).map(p => p.close);
+            const sma = data.sma || [];
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = prices;
+            chart.data.datasets[1].data = sma;
+            chart.update();
+        }
+
+        let socket;
+        function connect() {
+            socket = new WebSocket(makeWsUrl());
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    applyPayload(data);
+                } catch (err) {
+                    console.error('Bad WS payload', err);
+                }
+            };
+            socket.onclose = () => {
+                // attempt reconnect after brief delay
+                setTimeout(connect, 2000);
+            };
+        }
+
+        connect();
+
+        // reconnect on ticker change
+        if (select) {
+            select.addEventListener('change', () => {
+                if (socket) socket.close();
+                connect();
+            });
+        }
     </script>
 </body>
 </html>
