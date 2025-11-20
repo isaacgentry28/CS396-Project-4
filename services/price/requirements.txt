@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
-httpx
-pydantic
 SQLAlchemy>=2
 psycopg2-binary
 python-dotenv
+yfinance
+pandas
