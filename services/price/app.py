@@ -21,6 +21,8 @@ TICKERS: List[str] = [
 
 INTERVAL = os.getenv("PRICE_INTERVAL", "5min")      # 1min, 5min, 15min, etc.
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "300"))  # how often to poll, default 5 min
+PRICE_API_COOLDOWN_SECONDS = int(os.getenv("PRICE_API_COOLDOWN_SECONDS", "15"))
+PRICE_RATE_LIMIT_BACKOFF_SECONDS = int(os.getenv("PRICE_RATE_LIMIT_BACKOFF_SECONDS", "60"))
 
 # Build DB URL from the Postgres env vars docker-compose will give us
 POSTGRES_USER = os.getenv("POSTGRES_USER", "stocks_user")
@@ -78,8 +80,10 @@ async def fetch_intraday_for_symbol(client: httpx.AsyncClient, symbol: str) -> l
     data = resp.json()
 
     # Handle rate limiting / errors
-    if "Note" in data:
-        print(f"[{symbol}] API note / rate limit: {data['Note']}", flush=True)
+    if "Note" in data or "Information" in data:
+        msg = data.get("Note") or data.get("Information")
+        print(f"[{symbol}] API rate/usage notice: {msg}", flush=True)
+        await asyncio.sleep(PRICE_RATE_LIMIT_BACKOFF_SECONDS)
         return []
     if "Error Message" in data:
         print(f"[{symbol}] API error: {data['Error Message']}", flush=True)
@@ -131,6 +135,8 @@ async def poll_loop():
                 for symbol in TICKERS:
                     rows = await fetch_intraday_for_symbol(client, symbol)
                     all_rows.extend(rows)
+                    if symbol != TICKERS[-1]:
+                        await asyncio.sleep(PRICE_API_COOLDOWN_SECONDS)
 
                 insert_prices(all_rows)
                 print(f"Inserted {len(all_rows)} rows total", flush=True)

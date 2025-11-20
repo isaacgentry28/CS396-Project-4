@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy>=2
+psycopg2-binary
+python-dotenv
+jinja2

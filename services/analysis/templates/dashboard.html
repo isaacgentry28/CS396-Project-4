@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Stock Fusion Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #0f172a; color: #e2e8f0; }
+        header { padding: 1.5rem 2rem; background: #1e293b; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+        h1 { margin: 0; font-size: 1.5rem; }
+        main { padding: 2rem; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+        section { background: #1e293b; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.4); }
+        label { font-weight: 600; margin-right: 0.5rem; }
+        select { padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: none; background: #334155; color: inherit; }
+        .metrics { display: grid; gap: 0.75rem; }
+        .metric { display: flex; justify-content: space-between; }
+        .muted { color: #94a3b8; font-size: 0.9rem; }
+        canvas { width: 100%; height: 300px; }
+        .status { display: flex; flex-direction: column; gap: 0.35rem; }
+        .status span { font-size: 0.95rem; }
+        a { color: #38bdf8; }
+        .warning { color: #f97316; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Stock Data Fusion</h1>
+        <form method="get">
+            <label for="symbol">Ticker</label>
+            <select id="symbol" name="symbol" onchange="this.form.submit()">
+                {% for sym in symbols %}
+                    <option value="{{ sym }}" {% if sym == selected %}selected{% endif %}>{{ sym }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        <div class="status">
+            <span><strong>Data points:</strong> {{ price_points }} | <strong>SMA Window:</strong> {{ sma_window }}</span>
+            {% if latest_ts %}
+                <span><strong>Last price:</strong> {{ latest_ts }} UTC {% if freshness_minutes is not none %}({{ '%.1f'|format(freshness_minutes) }} min old){% endif %}</span>
+                {% if freshness_minutes is not none and freshness_minutes > 15 %}
+                    <span class="warning">Warning: price data is older than 15 minutes.</span>
+                {% endif %}
+            {% else %}
+                <span>No price data yet. Wait for the price service to ingest.</span>
+            {% endif %}
+        </div>
+    </header>
+
+    <main>
+        <section style="grid-column: 1 / -1;">
+            <h2>Price vs SMA</h2>
+            <canvas id="priceChart"></canvas>
+        </section>
+
+        <section>
+            <h2>Fundamental Snapshot</h2>
+            {% if fundamentals %}
+                <div class="metrics">
+                    <div class="metric"><span>P/E Ratio</span><span>{{ fundamentals.pe_ratio or 'N/A' }}</span></div>
+                    <div class="metric"><span>Market Cap</span><span>{% if fundamentals.market_cap %}{{ '{:,.0f}'.format(fundamentals.market_cap) }}{% else %}N/A{% endif %}</span></div>
+                    <div class="metric"><span>52-Week High</span><span>{{ fundamentals.fifty_two_week_high or 'N/A' }}</span></div>
+                    <div class="metric"><span>Last Updated</span><span>{{ fundamentals.updated_at }}</span></div>
+                    {% if fundamentals_age is not none and fundamentals_age > 60 %}
+                        <p class="warning">Fundamentals are {{ '%.1f'|format(fundamentals_age) }} minutes old.</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="muted">No fundamentals yet. Ensure the fundamentals service has fetched this ticker.</p>
+            {% endif %}
+        </section>
+
+        <section>
+            <h2>API Access</h2>
+            <p class="muted">Need the fused data elsewhere? Fetch <code>/api/summary?symbol={{ selected }}</code> from this service to get the latest prices, SMA values, and fundamentals in JSON.</p>
+            <p class="muted">Health: <code>/health</code></p>
+        </section>
+    </main>
+
+    <script>
+        const payload = JSON.parse('{{ chart_payload | safe }}');
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const priceDataset = payload.prices || [];
+        const smaDataset = payload.sma || [];
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: payload.labels,
+                datasets: [
+                    {
+                        label: 'Close',
+                        data: priceDataset,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56,189,248,0.15)',
+                        tension: 0.2,
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'SMA',
+                        data: smaDataset,
+                        borderColor: '#f472b6',
+                        backgroundColor: 'rgba(244,114,182,0.1)',
+                        tension: 0.2,
+                        pointRadius: 0,
+                    }
+                ]
+            },
+            options: {
+                animation: false,
+                responsive: true,
+                scales: {
+                    x: { display: true, ticks: { color: '#cbd5f5' } },
+                    y: { display: true, ticks: { color: '#cbd5f5' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0' } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                if (ctx.parsed.y === null) { return ctx.dataset.label + ': N/A'; }
+                                return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
