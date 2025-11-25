@@ -74,7 +74,8 @@ async def fetch_intraday_for_symbol(symbol: str) -> list[dict]:
                 interval=INTERVAL,
                 period=PRICE_HISTORY_PERIOD,
                 auto_adjust=False,
-                prepost=False,
+                # Enable extended-hours data so we can show the freshest bars available.
+                prepost=True,
                 progress=False,
                 threads=False,
             )

@@ -221,7 +221,7 @@ async def api_summary(symbol: Optional[str] = None):
 
 
 @app.websocket("/ws")
-async def websocket_summary(websocket: WebSocket, symbol: Optional[str] = None):
+async def websocket_summary(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
@@ -230,6 +230,8 @@ async def websocket_summary(websocket: WebSocket, symbol: Optional[str] = None):
                 await asyncio.sleep(WS_REFRESH_SECONDS)
                 continue
 
+            # Read the symbol from query params (e.g., /ws?symbol=MSFT); fall back to the first known symbol.
+            symbol = websocket.query_params.get("symbol")
             selected = (symbol or symbols[0]).upper()
             if selected not in symbols:
                 selected = symbols[0]
