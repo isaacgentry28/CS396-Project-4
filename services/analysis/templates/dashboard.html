@@ -97,6 +97,8 @@
                         backgroundColor: 'rgba(56,189,248,0.15)',
                         tension: 0.2,
                         pointRadius: 0,
+                        pointHitRadius: 8,
+                        pointHoverRadius: 5,
                     },
                     {
                         label: 'SMA',
@@ -105,12 +107,15 @@
                         backgroundColor: 'rgba(244,114,182,0.1)',
                         tension: 0.2,
                         pointRadius: 0,
+                        pointHitRadius: 8,
+                        pointHoverRadius: 5,
                     }
                 ]
             },
             options: {
                 animation: false,
                 responsive: true,
+                interaction: { mode: 'index', intersect: false },
                 scales: {
                     x: { display: true, ticks: { color: '#cbd5f5' } },
                     y: { display: true, ticks: { color: '#cbd5f5' } }
@@ -118,10 +123,14 @@
                 plugins: {
                     legend: { labels: { color: '#e2e8f0' } },
                     tooltip: {
+                        intersect: false,
                         callbacks: {
+                            title: function(ctx) {
+                                return ctx[0]?.label || '';
+                            },
                             label: function(ctx) {
                                 if (ctx.parsed.y === null) { return ctx.dataset.label + ': N/A'; }
-                                return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2);
+                                return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`;
                             }
                         }
                     }

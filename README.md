@@ -9,6 +9,8 @@ Three Dockerized FastAPI services plus Postgres form a complete data pipeline: o
 - **Analysis & Visualization Service (`services/analysis`)** – Joins both datasets, computes a configurable Simple Moving Average, serves a JSON API, and renders a Chart.js dashboard that highlights data freshness.
 - **Postgres + Adminer** – Central store plus a lightweight SQL UI for inspection.
 
+
+
 **Data flow**
 1. Price service polls Yahoo Finance every `POLL_SECONDS`, staggering requests per ticker.
 2. Fundamental service polls Yahoo Finance on a slower cadence (default hourly).
